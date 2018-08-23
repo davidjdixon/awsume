@@ -493,7 +493,8 @@ def list_profile_names(args, app):
         profile_names.extend(func(args, app))
     print('\n'.join(profile_names))
 
-
+def sanitise_profile_name(profile):
+    return profile.lower().replace(' ', '-')
 
 #
 #   InspectionAndValidation
@@ -865,7 +866,7 @@ def get_user_session(app, args, profiles, cache_path, user_session):
         return credentials
 
     cache_file_name = 'awsume-credentials-'
-    cache_file_name += args.target_profile_name if not is_role(profile) else profile['source_profile']
+    cache_file_name += sanitise_profile_name(args.target_profile_name) if not is_role(profile) else profile['source_profile']
     cache_session = read_aws_cache(cache_path, cache_file_name)
     if args.force_refresh is False and valid_cache_session(cache_session):
         LOG.debug('returning cache session: %s', json.dumps(cache_session, indent=2))
@@ -915,7 +916,7 @@ def get_role_session(app, args, profiles, user_session, role_session):
     LOG.info('Getting role session credentials')
 
     cache_file_name = 'awsume-role-credentials-'
-    cache_file_name += args.target_profile_name
+    cache_file_name += sanitise_profile_name(args.target_profile_name)
     cache_session = read_aws_cache(AWS_CACHE_DIRECTORY, cache_file_name)
     if args.force_refresh is False and valid_cache_session(cache_session):
         LOG.debug('returning cache session: %s', json.dumps(cache_session, indent=2))
@@ -926,7 +927,7 @@ def get_role_session(app, args, profiles, user_session, role_session):
         LOG.debug('using custom session name: %s', args.session_name)
         role_session_name = args.session_name
     else:
-        role_session_name = 'awsume-session-' + args.target_profile_name
+        role_session_name = 'awsume-session-' + sanitise_profile_name(args.target_profile_name)
     sts_client = create_sts_client(user_session['AccessKeyId'],
                                    user_session['SecretAccessKey'],
                                    user_session.get('SessionToken'))
@@ -996,7 +997,7 @@ def start_auto_awsume(args, app, profiles, credentials_file_path, user_session, 
         role_session_name = args.session_name
         LOG.debug('custom session name: %s', role_session_name)
     else:
-        role_session_name = 'awsume-session-' + args.target_profile_name
+        role_session_name = 'awsume-session-' + sanitise_profile_name(args.target_profile_name)
         LOG.debug('default session name: %s', role_session_name)
     auto_profile = create_auto_profile(role_session,
                                        user_session,
@@ -1006,7 +1007,7 @@ def start_auto_awsume(args, app, profiles, credentials_file_path, user_session, 
     write_auto_awsume_session(args.target_profile_name, auto_profile, credentials_file_path)
     kill_all_auto_processes()
     data_list = [
-        str('auto-refresh-' + args.target_profile_name),
+        str('auto-refresh-' + sanitise_profile_name(args.target_profile_name)),
         str(role_session['region']),
         str(args.target_profile_name)
     ]
@@ -1048,7 +1049,7 @@ def remove_auto_profile(profile_name=None):
     auto_awsume_parser.read(AWS_CREDENTIALS_FILE)
     if profile_name:
         LOG.debug('removing auto-refresh- profile: %s', profile_name)
-        auto_profile_name = 'auto-refresh-' + profile_name
+        auto_profile_name = 'auto-refresh-' + sanitise_profile_name(profile_name)
         if auto_awsume_parser.has_section(auto_profile_name):
             auto_awsume_parser.remove_section(auto_profile_name)
     else:
@@ -1070,7 +1071,7 @@ def write_auto_awsume_session(profile_name, auto_profile, credentials_file_path)
     LOG.info('Writing auto-awsume session')
     LOG.debug('Profile name: %s', profile_name)
     LOG.debug('AutoAwsume profile: %s', json.dumps(auto_profile, indent=2))
-    auto_profile_name = 'auto-refresh-' + profile_name
+    auto_profile_name = 'auto-refresh-' + sanitise_profile_name(profile_name)
     auto_awsume_parser = ConfigParser.ConfigParser()
     auto_awsume_parser.read(credentials_file_path)
     if auto_awsume_parser.has_section(auto_profile_name):
